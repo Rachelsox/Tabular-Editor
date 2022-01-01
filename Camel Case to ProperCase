@@ -1,0 +1,54 @@
+foreach(var obj in Selected.OfType<ITabularNamedObject>()) {
+    var oldName = obj.Name;
+    var newName = new System.Text.StringBuilder();
+    for(int i = 0; i < oldName.Length; i++) {
+        // First letter should always be capitalized:
+        if(i == 0) newName.Append(Char.ToUpper(oldName[i]));
+
+        // A sequence of two uppercase letters followed by a lowercase letter should have a space inserted
+        // after the first letter:
+        else if(i + 2 < oldName.Length && char.IsLower(oldName[i + 2]) && char.IsUpper(oldName[i + 1]) && char.IsUpper(oldName[i]))
+        {
+            newName.Append(oldName[i]);
+            newName.Append(" ");
+        }
+
+        // All other sequences of a lowercase letter followed by an uppercase letter, should have a space
+        // inserted after the first letter:
+        else if(i + 1 < oldName.Length && char.IsLower(oldName[i]) && char.IsUpper(oldName[i+1]))
+        {
+            newName.Append(oldName[i]);
+            newName.Append(" ");
+        }
+        else
+        {
+            newName.Append(oldName[i]);
+        }
+    }
+    obj.Name = newName.ToString();
+}
+Exporting dependencies between tables and measures
+Let's say you have a large, complex model, and you want to know which measures are potentially affected by changes to the underlying data.
+
+The following script loops through all the measures of your model, and for each measure, it outputs a list of tables that measure depends on - both directly and indirectly. The list is outputted as a Tab-separated file.
+
+string tsv = "Measure\tDependsOnTable"; // TSV file header row
+
+// Loop through all measures:
+foreach(var m in Model.AllMeasures) {
+
+    // Get a list of ALL objects referenced by this measure (both directly and indirectly through other measures):
+    var allReferences = m.DependsOn.Deep();
+
+    // Filter the previous list of references to table references only. For column references, let's get th
+    // table that each column belongs to. Finally, keep only distinct tables:
+    var allTableReferences = allReferences.OfType<Table>()
+        .Concat(allReferences.OfType<Column>().Select(c => c.Table)).Distinct();
+
+    // Output TSV rows - one for each table reference:
+    foreach(var t in allTableReferences)
+        tsv += string.Format("\r\n{0}\t{1}", m.Name, t.Name);
+}
+    
+tsv.Output();   
+// SaveFile("c:\\MyProjects\\SSAS\\MeasureTableDependencies.tsv", tsv); // Uncomment this line to save output to a file
